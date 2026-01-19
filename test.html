@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gudang ATK</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { background-color: #fdfbfb; font-family: 'Quicksand', sans-serif; }
+        .bg-pastel-blue { background-color: #d4eaf7; color: #4a90e2; border-radius: 20px; }
+        .bg-pastel-green { background-color: #e2f0cb; color: #7cb342; border-radius: 20px; }
+        .glass-card { background: white; border-radius: 25px; padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); border: 1px solid #f1f1f1; }
+        /* Style Tombol Tambah Kurang */
+        .btn-qty { 
+            width: 35px; height: 35px; border-radius: 10px; border: none; 
+            font-weight: bold; font-size: 1.2rem; transition: 0.2s;
+            display: inline-flex; align-items: center; justify-content: center;
+        }
+        .btn-minus { background-color: #ffdad9; color: #e57373; }
+        .btn-plus { background-color: #dcfce7; color: #15803d; }
+        .btn-qty:hover { transform: scale(1.1); opacity: 0.8; }
+        .stok-display { min-width: 50px; font-size: 1.1rem; font-weight: 700; color: #2c3e50; }
+        .low-stock { color: #e57373 !important; }
+    </style>
+</head>
+<body>
+
+<nav class="navbar navbar-light bg-white border-bottom py-3">
+    <div class="container">
+        <span class="navbar-brand fw-bold text-secondary"><i class="bi bi-box-seam-fill me-2 text-info"></i>GUDANG SELONG</span>
+        <button onclick="clearAllData()" class="btn btn-outline-danger btn-sm rounded-pill fw-bold">Reset Dashboard</button>
+    </div>
+</nav>
+
+<div class="container py-4">
+    <div class="row g-3 mb-4">
+        <div class="col-6">
+            <div class="p-4 bg-pastel-blue shadow-sm">
+                <small class="fw-bold opacity-75">JENIS BARANG</small>
+                <h2 class="fw-bold mb-0" id="totalItems">0</h2>
+            </div>
+        </div>
+        <div class="col-6">
+            <div class="p-4 bg-pastel-green shadow-sm">
+                <small class="fw-bold opacity-75">TOTAL STOK UNIT</small>
+                <h2 class="fw-bold mb-0" id="totalStock">0</h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="glass-card mb-4 text-center">
+        <h6 class="fw-bold mb-3">Upload File CSV Gudang</h6>
+        <div class="d-flex gap-2 justify-content-center">
+            <input type="file" id="csvFileInput" class="form-control w-50" accept=".csv">
+            <button onclick="importData()" class="btn btn-info text-white fw-bold px-4 rounded-pill">Update</button>
+        </div>
+    </div>
+
+    <div class="glass-card">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h5 class="fw-bold mb-0">Kelola Stok ATK</h5>
+            <input type="text" id="searchBox" class="form-control w-25 rounded-pill" placeholder="Cari..." onkeyup="searchBarang()">
+        </div>
+        
+        <table class="table align-middle">
+            <thead>
+                <tr class="text-muted small">
+                    <th>NO</th>
+                    <th>NAMA BARANG</th>
+                    <th class="text-center">KONTROL STOK</th>
+                    <th>SATUAN</th>
+                    <th class="text-end">OPSI</th>
+                </tr>
+            </thead>
+            <tbody id="inventoryTable"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    let atkList = JSON.parse(localStorage.getItem('atkDataSelong')) || [];
+
+    function updateStats() {
+        document.getElementById('totalItems').innerText = atkList.length;
+        const total = atkList.reduce((acc, curr) => acc + (parseInt(curr.stok) || 0), 0);
+        document.getElementById('totalStock').innerText = total;
+        localStorage.setItem('atkDataSelong', JSON.stringify(atkList));
+    }
+
+    // FUNGSI UTAMA TAMBAH KURANG
+    function gantiQty(index, jumlah) {
+        let stokSekarang = parseInt(atkList[index].stok) || 0;
+        let stokBaru = stokSekarang + jumlah;
+        if (stokBaru < 0) stokBaru = 0;
+        atkList[index].stok = stokBaru.toString();
+        displayTable();
+    }
+
+    function displayTable(data = atkList) {
+        const tableBody = document.getElementById('inventoryTable');
+        tableBody.innerHTML = '';
+        
+        data.forEach((item, index) => {
+            const originalIndex = atkList.findIndex(x => x.nama === item.nama);
+            const isLow = parseInt(item.stok) < 10;
+            
+            tableBody.innerHTML += `
+                <tr>
+                    <td class="text-muted fw-bold">${index + 1}</td>
+                    <td class="fw-bold">${item.nama}</td>
+                    <td class="text-center">
+                        <div class="d-flex align-items-center justify-content-center gap-3">
+                            <button onclick="gantiQty(${originalIndex}, -1)" class="btn-qty btn-minus">-</button>
+                            <span class="stok-display ${isLow ? 'low-stock' : ''}">${item.stok}</span>
+                            <button onclick="gantiQty(${originalIndex}, 1)" class="btn-qty btn-plus">+</button>
+                        </div>
+                    </td>
+                    <td class="text-muted small">${item.satuan}</td>
+                    <td class="text-end">
+                        <button onclick="hapusItem(${originalIndex})" class="btn btn-sm text-danger"><i class="bi bi-trash3"></i></button>
+                    </td>
+                </tr>`;
+        });
+        updateStats();
+    }
+
+    function importData() {
+        const file = document.getElementById('csvFileInput').files[0];
+        if (!file) return alert("Pilih file dulu!");
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const rows = e.target.result.split(/\r?\n/);
+            for (let i = 1; i < rows.length; i++) {
+                if (!rows[i].trim()) continue;
+                let cols = rows[i].split(rows[i].includes(';') ? ';' : ',');
+                if (cols.length >= 2) {
+                    const name = cols[1].replace(/"/g, "").trim().toUpperCase();
+                    if (!atkList.some(item => item.nama === name)) {
+                        atkList.push({ nama: name, stok: cols[2] || "0", satuan: cols[3] || "-" });
+                    }
+                }
+            }
+            displayTable();
+        };
+        reader.readAsText(file);
+    }
+
+    function clearAllData() { if(confirm("Reset semua?")) { atkList = []; displayTable(); } }
+    function searchBarang() {
+        const key = document.getElementById('searchBox').value.toLowerCase();
+        displayTable(atkList.filter(i => i.nama.toLowerCase().includes(key)));
+    }
+    function hapusItem(index) { atkList.splice(index, 1); displayTable(); }
+
+    displayTable();
+</script>
+</body>
+</html>
